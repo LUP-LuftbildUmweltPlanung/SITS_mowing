@@ -42,6 +42,12 @@ OUTPUT_EXPLODE = FALSE
 # Type: Logical. Valid values: {TRUE,FALSE}
 OUTPUT_SUBFOLDERS = FALSE
 
+# OTHERS
+CHUNK_SIZE = 1000 1000
+FAIL_IF_EMPTY = FALSE
+TARGET_SENSOR = SEN2L
+DATE_IGNORE_LANDSAT_7 = 2099-12-31
+
 # PARALLEL PROCESSING
 # ------------------------------------------------------------------------
 # This module is using a streaming mechanism to speed up processing. There
@@ -51,9 +57,9 @@ OUTPUT_SUBFOLDERS = FALSE
 # output. Each team can have multiple sub-threads to speed up the work. The
 # number of threads to use for each team is given by following parameters.
 # Type: Integer. Valid range: [1,...
-NTHREAD_READ = 3
-NTHREAD_COMPUTE = 7
-NTHREAD_WRITE = 2
+NTHREAD_READ = 7
+NTHREAD_COMPUTE = 9
+NTHREAD_WRITE = 3
 # Use STREAMING = FALSE to disable streaming. This will perform reading,
 # computing and writing after one another in sequential mode.
 # Each operation will still be parallelized with above settings.

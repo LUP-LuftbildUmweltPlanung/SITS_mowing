@@ -319,7 +319,7 @@ def detectMow_S2_new(xs, ys, clearWd, yr, type='ConHull', nOrder=3, model='linea
                             dates = str(dt + dtdelta)
                             date = dates[0:10]
                             mowingEvents.append(date)
-                            mowingDoy.append(np.int(doy))
+                            mowingDoy.append(int(doy))
                             mow_date_index.append(evIndex)
                             i = i + 1
             else:
@@ -359,7 +359,7 @@ def detectMow_S2_new(xs, ys, clearWd, yr, type='ConHull', nOrder=3, model='linea
                                     dates = str(dt + dtdelta)
                                     date = dates[0:10]
                                     mowingEvents.append(date)
-                                    mowingDoy.append(np.int(doy))
+                                    mowingDoy.append(int(doy))
                                     mow_date_index.append(evIndex)
                                     i = i + 1
                     else:
@@ -472,7 +472,7 @@ def forcepy_pixel(inarray, outarray, dates, sensors, bandnames, nodata, nproc):
             X = x[subsetter]
             nodata_ratio, max_gap_days, cso_abs = get_cso(X, Y, nodata=nodata, verbose=False, SoS=Season_min_frac,
                                                           EOS=Season_max_frac)
-            Y = np.array(ts[subsetter], dtype=np.float)
+            Y = np.array(ts[subsetter], dtype=float)
             Y[Y == nodata] = np.nan
             mean = np.nanmean(Y)
             median = np.nanmedian(Y)
@@ -508,8 +508,7 @@ def forcepy_pixel(inarray, outarray, dates, sensors, bandnames, nodata, nproc):
                            int(diff_sum_dataavail * 100), 0]
             if profileAnalytics:
                 return mowingEvents, mowing_doy_out, xPeak, yPeak, xPol, yPol
-        except:
-            # print('ERROR')
+        except Exception:
             outarray[-1] = 1
 
 

@@ -5,7 +5,7 @@ derived from Sentinel-2 and Landsat data with 10m spatial resolution. The code u
 
 ## 1. Installing
 
-The basic parameters installations are implemented for Ubuntu 22.04 "jammy":
+The basic parameters installations are implemented for Ubuntu 22.04 "jammy" and uses FORCE:3.9.02:
 
 ```
 conda create --name SITSmow python==3.9

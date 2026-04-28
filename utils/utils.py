@@ -1,31 +1,24 @@
+
 import os
+import glob
 import subprocess
 import time
-from tqdm import tqdm
-import os
-import torch
-import rasterio
-import numpy as np
-import re
-from pathlib import Path
-from tqdm import tqdm
-import glob
-import json
-import datetime
-import pandas as pd
-import geopandas as gpd
-from shapely.geometry import Point
-from rasterio.merge import merge
-from rasterio.warp import reproject, Resampling
-from rasterio.mask import mask
-from rasterio.io import MemoryFile
 
-def create_folder_structure(base_path):
+import geopandas as gpd
+import rasterio
+from rasterio.merge import merge
+from rasterio.io import MemoryFile
+from rasterio.mask import mask
+from tqdm import tqdm
+
+
+def create_folder_structure(base_path, project_name):
     # Define the folder structure
     folder_structure = [
         'process',
         'process/data',
         'process/results',
+        f'process/results/{project_name}',
         'process/temp',
         'process/temp/_mask'
     ]
@@ -39,19 +32,36 @@ def create_folder_structure(base_path):
         else:
             print(f"Folder already exists: {path}")
 
+
+def run_shell_command(cmd, hold=False):
+    print(f"Running command:\n{cmd}\n")
+
+    if hold:
+        print("`hold=True` was requested, but commands are executed in the current terminal so output remains visible.")
+
+    result = subprocess.run(cmd, shell=True, check=False)
+    if result.returncode != 0:
+        raise RuntimeError(f"Command failed with exit code {result.returncode}")
+
+
 def execute_cmd(hold, local_dir, force_dir, base_path, project_name, basename):
-    cmd = f'sudo docker run -v {local_dir} -v {force_dir} -u "$(id -u):$(id -g)" davidfrantz/force ' \
-          "force-higher-level " \
-          f"{base_path}/process/temp/{project_name}/FORCE/{basename}/tsa_UDF.prm"
+    cmd = (
+        f'sudo docker run -v {local_dir} -v {force_dir} -u "$(id -u):$(id -g)" davidfrantz/force '
+        "force-higher-level "
+        f"{base_path}/process/temp/{project_name}/FORCE/{basename}/tsa_UDF.prm"
+    )
+    run_shell_command(cmd, hold=hold)
 
 
-    if hold == True:
-        subprocess.run(['xterm', '-hold', '-e', cmd])
-    else:
-        subprocess.run(['xterm','-e', cmd])
-
-
-def mosaic_rasters(base_path, project_name, basename, aoi_path=None, dtype="uint16"):
+def mosaic_rasters(
+    base_path,
+    project_name,
+    basename,
+    aoi_path=None,
+    dtype="uint16",
+    band_indexes=None,
+    output_filename=None,
+):
     """
     Mosaic rasters, optionally clip using AOI shapefile, and export with compression and compact dtype.
     Shows progress bars and step timings.
@@ -60,7 +70,7 @@ def mosaic_rasters(base_path, project_name, basename, aoi_path=None, dtype="uint
     start_total = time.time()
 
     # Step 1: Find input raster files
-    input_paths = glob.glob(f"{base_path}/process/temp/{project_name}/FORCE/{basename}/tiles_tss/X*/*.tif")
+    input_paths = glob.glob(f"{base_path}/process/temp/{project_name}/FORCE/{basename}/tiles_tss/X**/*.tif", recursive=True)
     print(f"Found {len(input_paths)} raster tiles.")
     if not input_paths:
         raise ValueError("No input .tif files found! Check your path.")
@@ -73,10 +83,13 @@ def mosaic_rasters(base_path, project_name, basename, aoi_path=None, dtype="uint
     end_read = time.time()
     print(f"✔ Finished reading in {end_read - start_read:.2f} seconds.")
 
+    if band_indexes is None:
+        band_indexes = list(range(1, src_files_to_mosaic[0].count + 1))
+
     # Step 3: Mosaic the rasters
     print("🔄 Merging rasters...")
     start_merge = time.time()
-    mosaic, out_transform = merge(src_files_to_mosaic)
+    mosaic, out_transform = merge(src_files_to_mosaic, indexes=band_indexes)
     end_merge = time.time()
     print(f"✔ Merged in {end_merge - start_merge:.2f} seconds.")
 
@@ -84,6 +97,7 @@ def mosaic_rasters(base_path, project_name, basename, aoi_path=None, dtype="uint
     out_meta = src_files_to_mosaic[0].meta.copy()
     out_meta.update({
         "driver": "GTiff",
+        "count": len(band_indexes),
         "height": mosaic.shape[1],
         "width": mosaic.shape[2],
         "transform": out_transform,
@@ -120,11 +134,13 @@ def mosaic_rasters(base_path, project_name, basename, aoi_path=None, dtype="uint
     # Step 6: Set up output
     output_dir = f"{base_path}/process/results/{project_name}"
     os.makedirs(output_dir, exist_ok=True)
-    first_name = os.path.splitext(os.path.basename(input_paths[0]))[0]
-    output_filename = os.path.join(output_dir, f"{first_name}.tif")
+    if output_filename is None:
+        first_name = os.path.splitext(os.path.basename(input_paths[0]))[0]
+        output_filename = os.path.join(output_dir, f"{first_name}.tif")
 
     # Step 7: Prepare band descriptions
-    descriptions = src_files_to_mosaic[0].descriptions
+    source_descriptions = src_files_to_mosaic[0].descriptions
+    descriptions = [source_descriptions[index - 1] for index in band_indexes]
     if descriptions and all(desc is not None for desc in descriptions):
         out_meta["descriptions"] = tuple(descriptions)
 
@@ -148,6 +164,26 @@ def mosaic_rasters(base_path, project_name, basename, aoi_path=None, dtype="uint
 
     return output_filename
 
+
+def export_selected_mowing_bands(base_path, project_name, basename, aoi_path=None):
+    selected_band_indexes = [1, 5, 6, 7, 8, 9, 10, 11]
+    output_filename = os.path.join(
+        base_path,
+        "process",
+        "results",
+        project_name,
+        f"{os.path.splitext(basename)[0]}_mowing_events.tif",
+    )
+
+    return mosaic_rasters(
+        base_path=base_path,
+        project_name=project_name,
+        basename=basename,
+        aoi_path=aoi_path,
+        dtype="int16",
+        band_indexes=selected_band_indexes,
+        output_filename=output_filename,
+    )
 
 
 
