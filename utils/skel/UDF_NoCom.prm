@@ -57,9 +57,9 @@ DATE_IGNORE_LANDSAT_7 = 2099-12-31
 # output. Each team can have multiple sub-threads to speed up the work. The
 # number of threads to use for each team is given by following parameters.
 # Type: Integer. Valid range: [1,...
-NTHREAD_READ = 7
-NTHREAD_COMPUTE = 9
-NTHREAD_WRITE = 3
+NTHREAD_READ = 8
+NTHREAD_COMPUTE = 20
+NTHREAD_WRITE = 5
 # Use STREAMING = FALSE to disable streaming. This will perform reading,
 # computing and writing after one another in sequential mode.
 # Each operation will still be parallelized with above settings.
@@ -135,7 +135,7 @@ USE_L2_IMPROPHE = FALSE
 # SENSORS = LNDLG).
 # Type: Character list. Valid values: {LND04,LND05,LND07,LND08,LND09,SEN2A,
 #   SEN2B,SEN2C,SEN2D,sen2a,sen2b,sen2c,sen2d,S1AIA,S1BIA,S1AID,S1BID,MOD01,MOD02,LNDLG,SEN2L,SEN2H,R-G-B,VVVHP,MODIS}
-SENSORS = SEN2A SEN2B LND08 LND09
+SENSORS = SEN2A SEN2B
 # Main product type to be used. Usually, this is a reflectance product like BOA.
 # When using composites, you may use BAP. This can be anything, but make sure that
 # the string can uniquely identify your product. As an example, do not use LEVEL2.
@@ -158,7 +158,7 @@ PRODUCT_TYPE_QUALITY = QAI
 # spectral response of any of these sensors to Sentinel-2A. Non-existent bands will be
 # predicted, too.
 # Type: Logical. Valid values: {TRUE,FALSE}
-SPECTRAL_ADJUST = TRUE
+SPECTRAL_ADJUST = FALSE
 
 # QAI SCREENING
 # ------------------------------------------------------------------------
