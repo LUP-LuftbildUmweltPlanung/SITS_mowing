@@ -50,6 +50,32 @@ The following parameters might be changed in the UDF_pixel.py file (search for t
 
 - For more information about the parameter and UDF files, please check the above links.
 
+## 4. UDF Benchmarking
+
+The repository includes a local benchmark script to profile the mowing UDF without rerunning FORCE. This is useful when optimizing the Python logic in `utils/skel/udf_pixel.py`.
+
+Run the benchmark from the project folder:
+
+```bash
+cd /path/to/repository/SITS_mowing
+python3 benchmark_udf.py --mode detect --iterations 5000 --profile-output udf_detect.prof
+python3 benchmark_udf.py --mode forcepy --iterations 2000 --profile-output udf_forcepy.prof
+```
+
+Benchmark modes:
+
+- `detect`: profiles `detectMow_S2_new(...)` directly on a representative sample time series.
+- `forcepy`: profiles `forcepy_pixel(...)`, including the per-pixel summary statistics path used by FORCE.
+
+If `snakeviz` is installed, the generated profile can be inspected with:
+
+```bash
+snakeviz udf_detect.prof
+snakeviz udf_forcepy.prof
+```
+
+This benchmark isolates Python-side UDF costs from FORCE runtime, Docker startup, masking, and raster export.
+
 ## Authors
 
 * [Sebastian Valencia](https://github.com/Azarozo19)
@@ -62,4 +88,3 @@ This project is licensed under the GNU General Public Licence, Version 3 (GPLv3)
 
 - Mapping grassland mowing events across Germany based on combined Sentinel-2 and Landsat 8 time series. 
 [Marcel Schwieder and Max Wesemeyer.](https://www.sciencedirect.com/science/article/pii/S0034425721005150)
-

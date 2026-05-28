@@ -209,9 +209,6 @@ def force_class_udf(project_name, force_dir, local_dir, base_path, aois, hold, d
             f'FILE_TILE = NULL': f'FILE_TILE = {base_path}/process/temp/{project_name}/FORCE/{basename}/provenance/resume_tiles.txt',
             f'DATE_RANGE = YYYY-MM-DD YYYY-MM-DD': f'DATE_RANGE = {DATE_RANGE}',
             f'FILE_PYTHON = NULL': f'FILE_PYTHON = {base_path}/process/temp/{project_name}/FORCE/{basename}/UDF_pixel.py',
-            f'NTHREAD_READ = 7': 'NTHREAD_READ = 1',
-            f'NTHREAD_COMPUTE = 9': 'NTHREAD_COMPUTE = 1',
-            f'NTHREAD_WRITE = 3': 'NTHREAD_WRITE = 1',
             f'STREAMING = TRUE': 'STREAMING = FALSE',
             f'PRETTY_PROGRESS = TRUE': 'PRETTY_PROGRESS = FALSE',
         }
