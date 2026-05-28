@@ -21,16 +21,13 @@ Notes: The code is build upon the [mowing UDF algorithm](https://github.com/davi
 The algorithm is pixel based. The output is a raster stack with 17 bands that contain:
 
 - **B1:** Sum of mowing events
-- **B2:** Maximum data gap in original time series
-- **B3:** absolute clear sky observations (CSO)
-- **B4:** CSO/potential observations (*100)
+- **B2:** DOY of detected mowing events
+- **B3:** DOY of detected mowing events
+- **B4:** DOY of detected mowing events
 - **B5:** DOY of detected mowing events
-- **B12:** Mean VI value of the defined grassland season
-- **B13:** Median VI value of the defined grassland season
-- **B14:** VI standard deviation of the defined grassland season
-- **B15:** Sum of differences between interpolated and original values (*100)
-- **B16:** Sum of differences between interpolated and original values * data availability (*100)
-- **B17:** Processing error [0,1]
+- **B6:** DOY of detected mowing events
+- **B7:** DOY of detected mowing events
+- **B8:** DOY of detected mowing events
 
 
 ### 3. Basics

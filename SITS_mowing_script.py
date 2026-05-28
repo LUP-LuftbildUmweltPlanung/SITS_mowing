@@ -8,15 +8,16 @@ from utils.utils import create_folder_structure, execute_cmd, export_selected_mo
 
 
 BASE_PATH = Path("/rvt_mount")
-PROJECT_NAME = ""
+PROJECT_NAME = "mowing_2018_germany"
 FORCE_DIR = "/force:/force"
-LOCAL_DIR = "/rvt_mount:/rvt_mount"
+LOCAL_DIR = f"{BASE_PATH}:{BASE_PATH}"
 HOLD = False
-CLEAN_RERUN = False
+CLEAN_RERUN = True
+ENABLE_PROFILING = False
 PROFILE_OUTPUT = "sits_mowing_profile.prof"
 
 DATE_RANGE = "2018-01-01 2018-12-31"
-AOIS = sorted(BASE_PATH.glob("3DTests/data/harm_data/speed_test_tile_X0064_Y0050.shp"))
+AOIS = sorted(BASE_PATH.glob("3DTests/data/harm_data/shp_germany_border.shp"))
 
 
 def process_aoi(aoi_path):
@@ -54,17 +55,20 @@ def main():
 
 
 if __name__ == "__main__":
-    profiler = cProfile.Profile()
-    start_time = time.time()
+    if ENABLE_PROFILING:
+        profiler = cProfile.Profile()
+        start_time = time.time()
 
-    profiler.enable()
-    main()
-    profiler.disable()
+        profiler.enable()
+        main()
+        profiler.disable()
 
-    total_time = time.time() - start_time
-    print(f"Total execution time: {total_time:.2f}s")
+        total_time = time.time() - start_time
+        print(f"Total execution time: {total_time:.2f}s")
 
-    stats = pstats.Stats(profiler).sort_stats("cumtime")
-    stats.print_stats(30)
-    stats.dump_stats(PROFILE_OUTPUT)
-    print(f"cProfile data written to {PROFILE_OUTPUT}")
+        stats = pstats.Stats(profiler).sort_stats("cumtime")
+        stats.print_stats(30)
+        stats.dump_stats(PROFILE_OUTPUT)
+        print(f"cProfile data written to {PROFILE_OUTPUT}")
+    else:
+        main()
