@@ -51,6 +51,26 @@ def check_and_reproject_shapefile(shapefile_path, target_epsg=3035):
 
 from pathlib import Path
 
+def tile_has_complete_output(tile_dir):
+    if not tile_dir.is_dir():
+        return False
+
+    # A completed FORCE tile should have a main GeoTIFF written directly into
+    # the tile directory. Ignore nested output folders from later processing.
+    tif_files = sorted(tile_dir.glob("*.tif"))
+    if not tif_files:
+        return False
+
+    main_tif = None
+    for tif_file in tif_files:
+        if tif_file.stat().st_size <= 0:
+            continue
+        main_tif = tif_file
+        break
+
+    return main_tif is not None
+
+
 def generate_tiles_to_process(base_path, project_name, basename):
     # Define the new output root path using the structure {base_path}/process/temp/{project_name}/FORCE/{basename}/tiles_tss
     output_root = Path(base_path) / 'process' / 'temp' / project_name / 'FORCE' / basename / 'tiles_tss'
@@ -70,15 +90,18 @@ def generate_tiles_to_process(base_path, project_name, basename):
     # Remove duplicate tiles if any
     all_tiles = list(set(all_tiles))
 
-    # List to store tiles that need processing (i.e., folders that are not found)
+    # List to store tiles that still need processing. A tile is only treated as
+    # complete if the directory exists and the main output GeoTIFF is present.
     tiles_to_process = []
+    completed_tiles = 0
 
-    # Loop over each tile to check if the folder exists
+    # Loop over each tile and requeue incomplete/partial outputs.
     for tile in all_tiles:
         tile_dir = output_root / tile
 
-        # If the directory doesn't exist, add the tile to the processing list
-        if not tile_dir.is_dir():
+        if tile_has_complete_output(tile_dir):
+            completed_tiles += 1
+        else:
             tiles_to_process.append(tile)
 
     # Ensure the output directory for the tile list exists
@@ -93,7 +116,11 @@ def generate_tiles_to_process(base_path, project_name, basename):
         for tile in tiles_to_process:
             file.write(f"{tile}\n")
 
-    print(f"Tiles to process ({len(tiles_to_process)}) written to: {output_tile_list}")
+    print(
+        f"Tiles complete: {completed_tiles} | "
+        f"tiles remaining: {len(tiles_to_process)} | "
+        f"resume list written to: {output_tile_list}"
+    )
     return output_tile_list
 
 
