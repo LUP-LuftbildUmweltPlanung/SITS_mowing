@@ -1,8 +1,10 @@
 from scipy import interpolate
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import time
 import numpy as np
 import warnings
+import os
+import traceback
 
 try:
     import bottleneck as bn
@@ -18,6 +20,62 @@ except ImportError:
 _warnings_configured = False
 _cached_force_dates = None
 _cached_force_year_fractions = None
+_logged_exception_count = 0
+_max_logged_exceptions = 20
+
+
+def _write_zero_output(outarray):
+    outarray[:] = 0
+
+
+def _empty_detection_result():
+    if profileAnalytics:
+        return [], [], 0, 0, 0, 0, [], [], [], []
+    return [], [], 0, 0, 0, 0
+
+
+def _get_error_log_path():
+    explicit_path = os.environ.get("MOWING_UDF_ERROR_LOG")
+    if explicit_path:
+        return explicit_path
+    return os.path.join(os.path.dirname(__file__), "udf_pixel_errors.log")
+
+
+def _log_forcepy_exception(exc, dates, nodata, ts):
+    global _logged_exception_count
+
+    if _logged_exception_count >= _max_logged_exceptions:
+        return
+
+    _logged_exception_count += 1
+
+    try:
+        finite_mask = np.isfinite(ts)
+        finite_values = ts[finite_mask]
+        min_value = float(np.min(finite_values)) if finite_values.size else None
+        max_value = float(np.max(finite_values)) if finite_values.size else None
+        log_lines = [
+            "=" * 80,
+            f"timestamp={datetime.now(timezone.utc).isoformat()}",
+            f"exception_index={_logged_exception_count}",
+            f"exception_type={type(exc).__name__}",
+            f"exception_message={exc}",
+            f"dates_count={len(dates)}",
+            f"nodata={nodata}",
+            f"ts_shape={ts.shape}",
+            f"ts_dtype={ts.dtype}",
+            f"ts_all_nodata={bool(np.all(ts == nodata))}",
+            f"ts_all_zero={bool(np.all(ts == 0))}",
+            f"ts_finite_min={min_value}",
+            f"ts_finite_max={max_value}",
+            "traceback:",
+            traceback.format_exc(),
+            "",
+        ]
+        with open(_get_error_log_path(), "a", encoding="utf-8") as log_file:
+            log_file.write("\n".join(log_lines))
+    except Exception:
+        pass
 
 
 def _nanstd(values):
@@ -61,6 +119,8 @@ def _ensure_cached_force_dates(dates):
 
 
 def get_cso(x, y, nodata=-9999, verbose=False, SoS=2018.2, EOS=2018.85):
+    if len(x) == 0 or len(y) == 0:
+        return 0, 0, 0
     # if no gap is found it will return 5 days as gap
     # in case the last potential observation misses the function calculates the gap to the EOS
     if np.all(y == nodata):
@@ -87,6 +147,8 @@ def get_cso(x, y, nodata=-9999, verbose=False, SoS=2018.2, EOS=2018.85):
     #########################
     # calculating gap to EOS
     valid_indices = np.flatnonzero(~nodata_mask)
+    if valid_indices.size == 0:
+        return 0, 0, 0
     last_valid_idx = int(valid_indices[-1])
     gap_to_EOS = (EOS - x[last_valid_idx]) * 365
     data_gap_dates_list.append(gap_to_EOS)
@@ -144,6 +206,8 @@ def detectMow_S2_new(xs, ys, clearWd, yr, type='ConHull', nOrder=3, model='linea
         validIndex_2 = Y > 0
         Y = Y[validIndex_2]
         X = X[validIndex_2]
+        if Y.size == 0 or X.size == 0:
+            return _empty_detection_result()
 
         ##############################################
         # averages duplicates in the time series
@@ -151,6 +215,8 @@ def detectMow_S2_new(xs, ys, clearWd, yr, type='ConHull', nOrder=3, model='linea
         vals, inverse, count = np.unique(records_array, return_inverse=True, return_counts=True)
         Y = np.bincount(inverse, weights=Y) / count
         X = vals
+        if Y.size == 0 or X.size == 0:
+            return _empty_detection_result()
 
         ##############################################
 
@@ -159,6 +225,8 @@ def detectMow_S2_new(xs, ys, clearWd, yr, type='ConHull', nOrder=3, model='linea
         EoGLS = np.abs(X - Season_max_frac).argmin()
         Y = np.asarray(Y[SoGLS:EoGLS])
         X = np.asarray(X[SoGLS:EoGLS])
+        if Y.size == 0 or X.size == 0 or not np.any(np.isfinite(Y)):
+            return _empty_detection_result()
 
         # calculate NDVI difference (t1) - (t-1)
         yT1 = np.asarray(Y[1:])
@@ -173,6 +241,8 @@ def detectMow_S2_new(xs, ys, clearWd, yr, type='ConHull', nOrder=3, model='linea
         EVI_obs_pot = EVI_obs / len(Y)
 
         LoS = int(X[len(X) - 1] * 365 - X[0] * 365)
+        if LoS <= 0:
+            return _empty_detection_result()
         EVI_obs_potII = EVI_obs / (LoS / 5)
 
         # identify first peak somewhere around the "mid" of the season
@@ -184,8 +254,8 @@ def detectMow_S2_new(xs, ys, clearWd, yr, type='ConHull', nOrder=3, model='linea
 
         YPeakSub = Y[MoSStart:MoSEnd]
 
-        if len(YPeakSub) == 0:
-            return
+        if len(YPeakSub) == 0 or not np.any(np.isfinite(YPeakSub)):
+            return _empty_detection_result()
 
         MoSPeak = _nanmax(YPeakSub)
         MoSIndex = int(np.nanargmax(YPeakSub)) + MoSStart
@@ -250,6 +320,8 @@ def detectMow_S2_new(xs, ys, clearWd, yr, type='ConHull', nOrder=3, model='linea
 
         Xarr = [X[idx] for idx in xarr_indices]
         Yarr = [Y[idx] for idx in xarr_indices]
+        if len(Xarr) < 2 or len(Yarr) < 2:
+            return _empty_detection_result()
 
     if model == 'linear':
         # model and fit spline
@@ -382,7 +454,9 @@ def forcepy_init(dates, sensors, bandnames):
 
 
 def serial_date_to_string(srl_no):
-    new_date = datetime(1970, 1, 1, 0, 0) + timedelta(int(srl_no) - 1)
+    # FORCE dates are days since 1970-01-01. Do not shift by -1 day,
+    # otherwise Jan 1 observations get pulled into the previous year.
+    new_date = datetime(1970, 1, 1, 0, 0) + timedelta(days=int(srl_no))
     return new_date
 
 
@@ -420,8 +494,10 @@ def forcepy_pixel(inarray, outarray, dates, sensors, bandnames, nodata, nproc):
     all_zero = np.all(ts == 0)
 
     if all_no_data:
+        _write_zero_output(outarray)
         return
     elif all_zero:
+        _write_zero_output(outarray)
         return
     else:
 
@@ -431,20 +507,35 @@ def forcepy_pixel(inarray, outarray, dates, sensors, bandnames, nodata, nproc):
             else:
                 _ensure_cached_force_dates(dates)
                 x = _cached_force_year_fractions
+                if x is None or len(x) == 0:
+                    _write_zero_output(outarray)
+                    return
 
-            yr = int(str(x[0])[:4])
+            # Use the median year of the time series instead of the first
+            # observation so year-boundary acquisitions do not anchor the
+            # season to the previous year.
+            yr = int(np.floor(np.nanmedian(x)))
             #################################
             # get sd mean median
             Season_min_frac = yr + GLstart
             Season_max_frac = yr + GLendII
             subsetter = np.where((Season_min_frac < x) & (x < Season_max_frac), True, False)
+            if not np.any(subsetter):
+                _write_zero_output(outarray)
+                return
 
             Y = np.array(ts[subsetter])
             X = x[subsetter]
+            if X.size == 0 or Y.size == 0:
+                _write_zero_output(outarray)
+                return
             nodata_ratio, max_gap_days, cso_abs = get_cso(X, Y, nodata=nodata, verbose=False, SoS=Season_min_frac,
                                                           EOS=Season_max_frac)
             Y = np.array(ts[subsetter], dtype=float)
             Y[Y == nodata] = np.nan
+            if not np.any(np.isfinite(Y)):
+                _write_zero_output(outarray)
+                return
             mean = _nanmean(Y)
             median = _nanmedian(Y)
             sd = _nanstd(Y)
@@ -452,17 +543,31 @@ def forcepy_pixel(inarray, outarray, dates, sensors, bandnames, nodata, nproc):
             Season_min_frac = yr + GLstart
             Season_max_frac = yr + GLend
             subsetter = np.where((Season_min_frac < x) & (x < Season_max_frac), True, False)
+            if not np.any(subsetter):
+                _write_zero_output(outarray)
+                return
             X = x[subsetter]
             Y = ts[subsetter]
+            if X.size == 0 or Y.size == 0:
+                _write_zero_output(outarray)
+                return
 
             if profileAnalytics:
-                mowingEvents, mowingDoy, diff_sum, EVI_obs, EVI_obs_pot, diff_sum_dataavail, xPeak, yPeak, xPol, yPol = detectMow_S2_new(
+                result = detectMow_S2_new(
                     X, Y, clearWd=clrwd, yr=yr, type='ConHull', nOrder=3, model='linear'
                 )
+                if result is None:
+                    _write_zero_output(outarray)
+                    return
+                mowingEvents, mowingDoy, diff_sum, EVI_obs, EVI_obs_pot, diff_sum_dataavail, xPeak, yPeak, xPol, yPol = result
             else:
-                mowingEvents, mowingDoy, diff_sum, EVI_obs, EVI_obs_pot, diff_sum_dataavail = detectMow_S2_new(
+                result = detectMow_S2_new(
                     X, Y, clearWd=clrwd, yr=yr, type='ConHull', nOrder=3, model='linear'
                 )
+                if result is None:
+                    _write_zero_output(outarray)
+                    return
+                mowingEvents, mowingDoy, diff_sum, EVI_obs, EVI_obs_pot, diff_sum_dataavail = result
 
             mowing_doy_out = [0] * 7
 
@@ -479,5 +584,6 @@ def forcepy_pixel(inarray, outarray, dates, sensors, bandnames, nodata, nproc):
                            int(diff_sum_dataavail * 100), 0]
             if profileAnalytics:
                 return mowingEvents, mowing_doy_out, xPeak, yPeak, xPol, yPol
-        except Exception:
-            outarray[-1] = 1
+        except Exception as exc:
+            _log_forcepy_exception(exc, dates, nodata, ts)
+            _write_zero_output(outarray)

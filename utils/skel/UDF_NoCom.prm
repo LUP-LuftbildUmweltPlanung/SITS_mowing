@@ -58,7 +58,7 @@ DATE_IGNORE_LANDSAT_7 = 2099-12-31
 # number of threads to use for each team is given by following parameters.
 # Type: Integer. Valid range: [1,...
 NTHREAD_READ = 8
-NTHREAD_COMPUTE = 20
+NTHREAD_COMPUTE = 22
 NTHREAD_WRITE = 5
 # Use STREAMING = FALSE to disable streaming. This will perform reading,
 # computing and writing after one another in sequential mode.
@@ -166,6 +166,7 @@ SPECTRAL_ADJUST = FALSE
 # Type: Character list. Valid values: {NODATA,CLOUD_OPAQUE,CLOUD_BUFFER,
 #   CLOUD_CIRRUS,CLOUD_SHADOW,SNOW,WATER,AOD_FILL,AOD_HIGH,AOD_INT,SUBZERO,
 #   SATURATION,SUN_LOW,ILLUMIN_NONE,ILLUMIN_POOR,ILLUMIN_LOW,SLOPED,WVP_NONE}
+#SCREEN_QAI = NODATA CLOUD_OPAQUE CLOUD_SHADOW SATURATION
 SCREEN_QAI = NODATA CLOUD_OPAQUE CLOUD_BUFFER CLOUD_CIRRUS CLOUD_SHADOW SNOW SUBZERO SATURATION
 # Threshold for removing outliers. Triplets of observations are used to determine
 # the overall noise in the time series by computing linearly interpolating between

@@ -8,32 +8,34 @@ from utils.utils import create_folder_structure, execute_cmd, export_selected_mo
 
 
 BASE_PATH = Path("/rvt_mount")
-PROJECT_NAME = "mowing_2018_germany"
+PROJECT_NAME = "mowing_2021_germany_1tile_"
 FORCE_DIR = "/force:/force"
 LOCAL_DIR = f"{BASE_PATH}:{BASE_PATH}"
 HOLD = False
 CLEAN_RERUN = True
-ENABLE_PROFILING = False
+RUN_FORCE = True
+ENABLE_PROFILING = True
 PROFILE_OUTPUT = "sits_mowing_profile.prof"
 
-DATE_RANGE = "2018-01-01 2018-12-31"
-AOIS = sorted(BASE_PATH.glob("3DTests/data/harm_data/shp_germany_border.shp"))
+DATE_RANGE = "2021-01-01 2021-12-31"
+AOIS = sorted(BASE_PATH.glob("3DTests/data/xml/1_2021_2024_v1_0.shp"))
 
 
 def process_aoi(aoi_path):
     basename = aoi_path.name
 
-    force_class_udf(
-        project_name=PROJECT_NAME,
-        force_dir=FORCE_DIR,
-        local_dir=LOCAL_DIR,
-        base_path=str(BASE_PATH),
-        aois=[str(aoi_path)],
-        hold=HOLD,
-        date_range=DATE_RANGE,
-        clean=CLEAN_RERUN,
-    )
-    execute_cmd(HOLD, LOCAL_DIR, FORCE_DIR, str(BASE_PATH), PROJECT_NAME, basename)
+    if RUN_FORCE:
+        force_class_udf(
+            project_name=PROJECT_NAME,
+            force_dir=FORCE_DIR,
+            local_dir=LOCAL_DIR,
+            base_path=str(BASE_PATH),
+            aois=[str(aoi_path)],
+            hold=HOLD,
+            date_range=DATE_RANGE,
+            clean=CLEAN_RERUN,
+        )
+        execute_cmd(HOLD, LOCAL_DIR, FORCE_DIR, str(BASE_PATH), PROJECT_NAME, basename)
 
     output_path = export_selected_mowing_bands(
         base_path=str(BASE_PATH),
